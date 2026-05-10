@@ -25,9 +25,7 @@ import org.springframework.data.redis.domain.geo.GeoReference;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-// Caffeine and Sentinel Big Tech Imports
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
+// Sentinel Big Tech Imports
 import com.alibaba.csp.sentinel.annotation.SentinelResource;
 import com.alibaba.csp.sentinel.slots.block.BlockException;
 import org.redisson.api.RBloomFilter;
@@ -68,13 +66,6 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
     // 核心引流站：布隆过滤器
     private RBloomFilter<Long> shopBloomFilter;
 
-    // 1. 初始化 Caffeine 本地多级缓存
-    private final Cache<String, Shop> shopLocalCache = Caffeine.newBuilder()
-            .initialCapacity(10)
-            .maximumSize(100) // 限制防宿主机内存溢出
-            .expireAfterWrite(10, TimeUnit.MINUTES) // 设置短期淘汰
-            .build();
-
     /**
      * 第一道城墙：项目启动时，捞出全部物理数据灌进布隆过滤器
      */
@@ -113,22 +104,12 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
             return Result.fail("您查询的商铺压根不存在！(布隆防盲扫命中)");
         }
 
-        // --- 方案二落地：多级缓存 Caffeine 第一级防御 ---
-        Shop localShop = shopLocalCache.getIfPresent(id.toString());
-        if (localShop != null) {
-            System.out.println("命中本地 Caffeine 缓存");
-            return Result.ok(localShop);
-        }
-
         // --- 第二级防御：查 Redis（这里走逻辑过期方案解决击穿） ---
         Shop shop = clientClient.queryWithLogicalExpire(CACHE_SHOP_KEY, id, Shop.class, this::getById, CACHE_SHOP_TTL,
                 TimeUnit.MINUTES);
         if (shop == null) {
             return Result.fail("店铺不存在！");
         }
-
-        // 查到数据后，偷偷塞一份给本地 Caffeine 备用，造福下一次请求
-        shopLocalCache.put(id.toString(), shop);
 
         return Result.ok(shop);
     }
@@ -314,27 +295,19 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
         if (id == null) {
             return Result.fail("店铺id不能为空");
         }
-        String redisKey = CACHE_SHOP_KEY + id;
-        String localKey = id.toString();
-
-        // ========== 延迟双删策略 ==========
-        // 第一删：先删 Redis 缓存 + 本地缓存，防止更新期间读到旧数据
-        stringRedisTemplate.delete(redisKey);
-        shopLocalCache.invalidate(localKey);
-
-        // 更新数据库
+        
+        // ========== Canal 异步解耦改造 ==========
+        // 之前这里是"延迟双删"代码。
+        // 现在我们只负责更新数据库。
+        // 更新成功后，MySQL 会产生 binlog。
+        // Canal Server 监听到 binlog 后，会推送给我们的 CanalBinlogListener。
+        // 由 CanalBinlogListener 负责异步且可靠地删除 Redis 缓存。
+        // 彻底解耦了业务逻辑和缓存一致性逻辑！
         updateById(shop);
-
-        // 第二删（延迟200ms）：防止在数据库主从同步期间，其他线程把旧缓存回写进来
-        // 延迟时间应略大于主从同步耗时，此处设为 200ms
-        DELAY_DELETE_EXECUTOR.schedule(() -> {
-            stringRedisTemplate.delete(redisKey);
-            shopLocalCache.invalidate(localKey);
-            System.out.println("【延迟双删】第二次删除缓存完成，Key: " + redisKey);
-        }, 200, TimeUnit.MILLISECONDS);
 
         return Result.ok();
     }
+
 
     @Override
     public Result queryShopByType(Integer typeId, Integer current, Double x, Double y) {

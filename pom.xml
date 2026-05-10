@@ -90,11 +90,6 @@
             <version>6.1.6.RELEASE</version>
         </dependency>
 
-        <!-- Caffeine 本地多级缓存 -->
-        <dependency>
-            <groupId>com.github.ben-manes.caffeine</groupId>
-            <artifactId>caffeine</artifactId>
-        </dependency>
 
         <!-- Alibaba Sentinel 熔断限流核心库 -->
         <dependency>
@@ -107,6 +102,32 @@
             <groupId>com.alibaba.csp</groupId>
             <artifactId>sentinel-annotation-aspectj</artifactId>
             <version>1.8.6</version>
+        </dependency>
+
+        <!-- RabbitMQ -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-amqp</artifactId>
+        </dependency>
+
+        <!-- Canal Client：通过 TCP 长连接接收 Canal Server 分发的 MySQL binlog 事件 -->
+        <dependency>
+            <groupId>com.alibaba.otter</groupId>
+            <artifactId>canal.client</artifactId>
+            <version>1.1.6</version>
+        </dependency>
+        <!-- Canal Protocol：解析 Canal 推送的 protobuf 格式消息体 -->
+        <dependency>
+            <groupId>com.alibaba.otter</groupId>
+            <artifactId>canal.protocol</artifactId>
+            <version>1.1.6</version>
+        </dependency>
+
+        <!-- COLA StateMachine -->
+        <dependency>
+            <groupId>com.alibaba.cola</groupId>
+            <artifactId>cola-component-statemachine</artifactId>
+            <version>4.3.2</version>
         </dependency>
 
     </dependencies>
