@@ -24,7 +24,14 @@ public class OrderStateMachineConfig {
     public StateMachine<OrderState, OrderEvent, VoucherOrder> orderStateMachine() {
         StateMachineBuilder<OrderState, OrderEvent, VoucherOrder> builder = StateMachineBuilderFactory.create();
 
-        // 1. 未支付 -> 支付 -> 已支付
+        builder.externalTransition()
+                .from(OrderState.UNPAID)
+                .to(OrderState.PAYING)
+                .on(OrderEvent.START_PAY)
+                .when(checkCondition())
+                .perform(orderStateAction.updateStateAction());
+
+        // 兼容现有直接支付成功的调用路径
         builder.externalTransition()
                 .from(OrderState.UNPAID)
                 .to(OrderState.PAID)
@@ -32,7 +39,13 @@ public class OrderStateMachineConfig {
                 .when(checkCondition())
                 .perform(orderStateAction.updateStateAction());
 
-        // 2. 未支付 -> 取消 -> 已取消
+        builder.externalTransition()
+                .from(OrderState.PAYING)
+                .to(OrderState.PAID)
+                .on(OrderEvent.PAY)
+                .when(checkCondition())
+                .perform(orderStateAction.updateStateAction());
+
         builder.externalTransition()
                 .from(OrderState.UNPAID)
                 .to(OrderState.CANCELED)
@@ -40,7 +53,13 @@ public class OrderStateMachineConfig {
                 .when(checkCondition())
                 .perform(orderStateAction.cancelOrderAction());
 
-        // 3. 已支付 -> 核销 -> 已核销
+        builder.externalTransition()
+                .from(OrderState.PAYING)
+                .to(OrderState.CANCELED)
+                .on(OrderEvent.CANCEL)
+                .when(checkCondition())
+                .perform(orderStateAction.cancelOrderAction());
+
         builder.externalTransition()
                 .from(OrderState.PAID)
                 .to(OrderState.USED)
@@ -48,7 +67,6 @@ public class OrderStateMachineConfig {
                 .when(checkCondition())
                 .perform(orderStateAction.updateStateAction());
 
-        // 4. 已支付 -> 申请退款 -> 退款中
         builder.externalTransition()
                 .from(OrderState.PAID)
                 .to(OrderState.REFUNDING)
@@ -56,7 +74,6 @@ public class OrderStateMachineConfig {
                 .when(checkCondition())
                 .perform(orderStateAction.updateStateAction());
 
-        // 5. 退款中 -> 退款成功 -> 已退款
         builder.externalTransition()
                 .from(OrderState.REFUNDING)
                 .to(OrderState.REFUNDED)
@@ -68,8 +85,6 @@ public class OrderStateMachineConfig {
     }
 
     private com.alibaba.cola.statemachine.Condition<VoucherOrder> checkCondition() {
-        return (context) -> {
-            return context != null;
-        };
+        return context -> context != null;
     }
 }

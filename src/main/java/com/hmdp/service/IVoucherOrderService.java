@@ -1,15 +1,12 @@
 package com.hmdp.service;
 
+import com.baomidou.mybatisplus.extension.service.IService;
 import com.hmdp.dto.Result;
 import com.hmdp.entity.VoucherOrder;
-import com.baomidou.mybatisplus.extension.service.IService;
 import com.hmdp.enums.OrderEvent;
 
 /**
- * <p>
- *  服务类
- * </p>
- *
+ * 券订单服务。
  */
 public interface IVoucherOrderService extends IService<VoucherOrder> {
 
@@ -19,39 +16,25 @@ public interface IVoucherOrderService extends IService<VoucherOrder> {
 
     void handleVoucherOrder(VoucherOrder voucherOrder);
 
-    /**
-     * 取消订单（触发状态机）
-     * @param orderId 订单ID
-     * @return 是否成功
-     */
     boolean cancelOrder(Long orderId);
 
     /**
-     * 支付订单（触发状态机）
-     * @param orderId 订单ID
-     * @return 是否成功
+     * 标记订单进入支付中。
      */
+    boolean markOrderPaying(Long orderId);
+
     boolean payOrder(Long orderId);
 
     /**
-     * 核销订单
+     * 处理支付状态确认补偿消息。
      */
+    void handlePaymentStatusCheck(Long orderId, int retryCount);
+
     boolean useOrder(Long orderId);
 
-    /**
-     * 申请退款
-     */
     boolean applyRefund(Long orderId);
 
-    /**
-     * 退款成功
-     */
     boolean refundSuccess(Long orderId);
 
-    /**
-     * 触发状态机流转
-     * @param order 订单实体
-     * @param event 触发事件
-     */
     void fireEvent(VoucherOrder order, OrderEvent event);
 }

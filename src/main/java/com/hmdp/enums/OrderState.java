@@ -1,8 +1,10 @@
 package com.hmdp.enums;
 
 /**
- * 订单状态枚举
- * 1：未支付；2：已支付；3：已核销；4：已取消；5：退款中；6：已退款
+ * 订单状态枚举。
+ *
+ * 为了兼容现有数据库状态值，新增的“支付中”状态使用新编码 7，
+ * 避免影响已存在的“已支付/已取消/已退款”等状态语义。
  */
 public enum OrderState {
     UNPAID(1, "未支付"),
@@ -10,7 +12,8 @@ public enum OrderState {
     USED(3, "已核销"),
     CANCELED(4, "已取消"),
     REFUNDING(5, "退款中"),
-    REFUNDED(6, "已退款");
+    REFUNDED(6, "已退款"),
+    PAYING(7, "支付中");
 
     private final int code;
     private final String desc;
